@@ -30,9 +30,6 @@ jobs:
       - name: Echo all folders in the current directory
         run: ls -d */
 
-      - name: Change directory to the cloned repository
-        run: cd figmaflow-app
-
       - name: Parse JSON from input
         id: parse_json
         run: |
@@ -106,6 +103,7 @@ jobs:
 
       - name: Install packages
         run: |
+          cd figmaflow-app
           npm install --force
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
 
@@ -130,11 +128,14 @@ jobs:
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
 
       - name: Make Gradlew Executable
-        run: cd android && chmod +x ./gradlew
+        run: |
+            cd figmaflow-app
+            cd android && chmod +x ./gradlew
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
 
       - name: Change app name
         run: |
+          cd figmaflow-app
           sed -i 's/Figmaflow/${{ steps.parse_json.outputs.name }}/g' android/app/src/main/res/values/strings.xml
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
 
@@ -148,6 +149,7 @@ jobs:
 
       - name: Change Android package name
         run: |
+          cd figmaflow-app
           # Define the new package name as an input
           NEW_PACKAGE_NAME="${{ steps.parse_json.outputs.packageName }}"
 
@@ -176,6 +178,7 @@ jobs:
 
       - name: Download app icon
         run: |
+          cd figmaflow-app
           mkdir newicon
           cd newicon
           wget -O appicon.png ${{ steps.parse_json.outputs.appIcon }}
@@ -183,11 +186,13 @@ jobs:
 
       - name: Copy new icons to app
         run: |
+            cd figmaflow-app
             cp newicon/appicon.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
         
       - name: Change app url
         run: |
+          cd figmaflow-app
           # sed -i 's#export const PROJECT = 'DEMO_ID';#export const PROJECT = '${{steps.parse_json.outputs.project}}';#' src/config/config.ts
 
           sed -i "s/export const PROJECT = __DEV__ ? 'atqqBjjPEtAlzlinbWzW3F' : 'DEMO_ID';/export const PROJECT = __DEV__ ? 'atqqBjjPEtAlzlinbWzW3F' : '${{steps.parse_json.outputs.project}}';/" src/config/config.ts
@@ -196,6 +201,7 @@ jobs:
         
       - name: Change app version
         run: |
+          cd figmaflow-app
           # Add commands here to change the app version
           sed -i 's/versionCode [0-9]\+/versionCode ${{ steps.parse_json.outputs.app_version }}/' android/app/build.gradle
           sed -i 's/versionName "[^"]\+"/versionName "${{ steps.parse_json.outputs.app_version }}"/' android/app/build.gradle
@@ -203,6 +209,7 @@ jobs:
 
       - name: Download keystore
         run: |
+          cd figmaflow-app
           cd android/app
           wget ${{steps.parse_json.outputs.keyPath }}
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
@@ -212,6 +219,7 @@ jobs:
 
       - name: Add firebase Android config
         run: |
+          cd figmaflow-app
           cd android/app
           echo ${{ toJson(steps.parse_json.outputs.androidConfig) }} > google-services.json
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
@@ -226,7 +234,7 @@ jobs:
               const url = 'https://figma-flow.vercel.app/api/v1/app/get-page-json?id=${{steps.parse_json.outputs.project}}&version=${{steps.parse_json.outputs.version}}'; 
               const response = await fetch(url)
               const responseJson = await response.json()
-              fs.writeFileSync('app-pages.json', JSON.stringify(responseJson?.data));
+              fs.writeFileSync('figmaflow-app/app-pages.json', JSON.stringify(responseJson?.data));
               console.log('Data written to output.json', JSON.stringify(responseJson?.data));
             }
 
@@ -236,11 +244,13 @@ jobs:
 
       - name: Clean Android project
         run: |
+          cd figmaflow-app
           cd android && ./gradlew clean
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
 
       - name: Generate App APK
         run: |
+          cd figmaflow-app
           cd android && ./gradlew app:assembleRelease --no-daemon
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
 
@@ -251,7 +261,7 @@ jobs:
             aws_key_id: ${{ secrets.AWS_KEY_ID }}
             aws_secret_access_key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
             aws_bucket: figmaflow
-            source_dir: android/app/build/outputs/apk
+            source_dir: figmaflow-app/android/app/build/outputs/apk
             destination_dir: app/${{steps.parse_json.outputs.project }}/${{ steps.parse_json.outputs.app_version }}
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
 
