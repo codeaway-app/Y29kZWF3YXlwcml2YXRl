@@ -20,12 +20,14 @@ jobs:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
 
-      - name: Clone private repository
-        env:
-            GH_PAT: ${{ secrets.GH_TOKEN }}
-        run: |
-            git clone https://$GH_TOKEN@github.com/iambavith-dev/figmaflow-app.git
-            cd figmaflow-app
+      - name: Checkout private repository
+        uses: actions/checkout@v2
+        with:
+            repository: iambavith-dev/figmaflow-app
+            token: ${{ secrets.GH_PAT }}
+
+      - name: Change directory to the cloned repository
+        run: cd figmaflow-app
 
       - name: Parse JSON from input
         id: parse_json
