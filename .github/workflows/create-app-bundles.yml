@@ -22,7 +22,7 @@ jobs:
 
       - name: Clone private repository
         env:
-            GH_TOKEN: ${{ secrets.GH_TOKEN }}
+            GH_PAT: ${{ secrets.GH_TOKEN }}
         run: |
             git clone https://$GH_TOKEN@github.com/iambavith-dev/figmaflow-app.git
             cd figmaflow-app
