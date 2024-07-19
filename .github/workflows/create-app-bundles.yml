@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v2
         with:
             repository: iambavith-dev/figmaflow-app
-            token: ${{ secrets.GH_PAT }}
+            token: ${{ secrets.GH_TOKEN }}
 
       - name: Change directory to the cloned repository
         run: cd figmaflow-app
