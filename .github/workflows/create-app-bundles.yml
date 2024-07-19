@@ -1,0 +1,275 @@
+name: Create Bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      data:
+        description: JSON of project data
+        default: ''
+        required: false
+
+jobs:
+  android-build:
+    name: Android Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+
+      - name: Clone private repository
+        env:
+            GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+            git clone https://$GH_TOKEN@github.com/iambavith-dev/figmaflow-app.git
+            cd figmaflow-app
+
+      - name: Parse JSON from input
+        id: parse_json
+        run: |
+                project_json='${{ github.event.inputs.data }}'
+                project=$(echo $project_json | jq -r '.project')
+                version=$(echo $project_json | jq -r '.version')
+                bundleId=$(echo $project_json | jq -r '.bundleId')
+                androidConfig=$(echo $project_json | jq -r '.androidConfig')
+                iosConfig=$(echo $project_json | jq -r '.iosConfig')
+                packageName=$(echo $project_json | jq -r '.packageName')
+                iosBundleIdenifier=$(echo $project_json | jq -r '.iosBundleIdenifier')
+                name=$(echo $project_json | jq -r '.name')
+                keyPath=$(echo $project_json | jq -r '.keyPath')
+                appIcon=$(echo $project_json | jq -r '.appIcon')
+                hasAndroidBuild=$(echo $project_json | jq -r '.hasAndroidBuild')
+                app_version=$(echo $project_json | jq -r '.app_version')
+                hasiOSBuild=$(echo $project_json | jq -r '.hasiOSBuild')
+                echo "::set-output name=project::$project"
+                echo "::set-output name=version::$version"
+                echo "::set-output name=bundleId::$bundleId"
+                echo "::set-output name=androidConfig::$androidConfig"
+                echo "::set-output name=iosConfig::$iosConfig"
+                echo "::set-output name=packageName::$packageName"
+                echo "::set-output name=iosBundleIdenifier::$iosBundleIdenifier"
+                echo "::set-output name=name::$name"
+                echo "::set-output name=keyPath::$keyPath"
+                echo "::set-output name=appIcon::$appIcon"
+                echo "::set-output name=hasAndroidBuild::$hasAndroidBuild"
+                echo "::set-output name=hasiOSBuild::$hasiOSBuild"
+                echo "::set-output name=app_version::$app_version"
+        shell: bash
+    
+      - name: Make API POST Call
+        run: |
+          node -e "
+            async function postData() {
+              try {
+                const response = await fetch('https://figma-flow.vercel.app/api/v1/project/bundles/update-bundle', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        status: 'PROGRESS',
+                        bundleId: '${{ steps.parse_json.outputs.bundleId }}'
+                    })
+                })
+                const responseJson = await response.json()
+                console.log(responseJson);
+              } catch (error) {
+                console.error(error);
+                process.exit(1);
+              }
+            }
+
+            postData();
+          "
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Install Java
+        uses: actions/setup-java@v2
+        with:
+          java-version: "17"
+          distribution: "adopt"
+          cache: "gradle"
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Install Node js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 21.5.0
+          yarn: true
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Install packages
+        run: |
+          npm install --force
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Cache Gradle Wrapper
+        uses: actions/cache@v2
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Cache Gradle Dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-caches-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-caches-
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Make Gradlew Executable
+        run: cd android && chmod +x ./gradlew
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Change app name
+        run: |
+          sed -i 's/Figmaflow/${{ steps.parse_json.outputs.name }}/g' android/app/src/main/res/values/strings.xml
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      # - name: Update Package Name
+      #   run: |
+      #       sed -i 's/com.figmaflow/${{ inputs.packageName }}/g' \
+      #       android/app/src/main/AndroidManifest.xml \
+      #       android/app/build.gradle \
+      #       android/build.gradle \
+      #       $(find android/app/src/main/java -type f -name '*.java')
+
+      - name: Change Android package name
+        run: |
+          # Define the new package name as an input
+          NEW_PACKAGE_NAME="${{ steps.parse_json.outputs.packageName }}"
+
+          # Define the old package name
+          OLD_PACKAGE_NAME="com.figmaflow"
+
+          # Replace the old package name with the new package name in AndroidManifest.xml and build.gradle files
+          sed -i "s/$OLD_PACKAGE_NAME/$NEW_PACKAGE_NAME/g" \
+              android/app/src/main/AndroidManifest.xml \
+              android/app/build.gradle \
+              android/build.gradle
+
+          # Replace the old package name with the new package name in all Java and Kotlin files
+          find android/app/src/main/java -type f \( -name '*.java' -o -name '*.kt' \) | xargs sed -i "s/$OLD_PACKAGE_NAME/$NEW_PACKAGE_NAME/g"
+
+          # Rename the directories to match the new package structure
+          OLD_PACKAGE_DIR=$(echo $OLD_PACKAGE_NAME | tr '.' '/')
+          NEW_PACKAGE_DIR=$(echo $NEW_PACKAGE_NAME | tr '.' '/')
+
+          if [ -d "android/app/src/main/java/$OLD_PACKAGE_DIR" ]; then
+              mkdir -p "android/app/src/main/java/$NEW_PACKAGE_DIR"
+              mv "android/app/src/main/java/$OLD_PACKAGE_DIR"/* "android/app/src/main/java/$NEW_PACKAGE_DIR"
+              rm -rf "android/app/src/main/java/$OLD_PACKAGE_DIR"
+          fi
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Download app icon
+        run: |
+          mkdir newicon
+          cd newicon
+          wget -O appicon.png ${{ steps.parse_json.outputs.appIcon }}
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Copy new icons to app
+        run: |
+            cp newicon/appicon.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+        
+      - name: Change app url
+        run: |
+          # sed -i 's#export const PROJECT = 'DEMO_ID';#export const PROJECT = '${{steps.parse_json.outputs.project}}';#' src/config/config.ts
+
+          sed -i "s/export const PROJECT = __DEV__ ? 'atqqBjjPEtAlzlinbWzW3F' : 'DEMO_ID';/export const PROJECT = __DEV__ ? 'atqqBjjPEtAlzlinbWzW3F' : '${{steps.parse_json.outputs.project}}';/" src/config/config.ts
+          sed -i "s/export const CLOUD_CONSOLE_WEB_CLIENT_ID = __DEV__ ? '595685602342-s0u4i8g87enj3kflidu4mkj59hsk20hk.apps.googleusercontent.com' : 'DEMO_ID';/export const CLOUD_CONSOLE_WEB_CLIENT_ID = __DEV__ ? '${{steps.parse_json.outputs.project.web_client_id}}' : 'DEMO_ID';/" src/config/config.ts
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+        
+      - name: Change app version
+        run: |
+          # Add commands here to change the app version
+          sed -i 's/versionCode [0-9]\+/versionCode ${{ steps.parse_json.outputs.app_version }}/' android/app/build.gradle
+          sed -i 's/versionName "[^"]\+"/versionName "${{ steps.parse_json.outputs.app_version }}"/' android/app/build.gradle
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Download keystore
+        run: |
+          cd android/app
+          wget ${{steps.parse_json.outputs.keyPath }}
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      # - name: Change keystore password
+      #   run: sed -i 's/MYAPP_UPLOAD_STORE_PASSWORD=.*/MYAPP_UPLOAD_STORE_PASSWORD=${{ inputs.keyPassword }}/g' android/gradle.properties
+
+      - name: Add firebase Android config
+        run: |
+          cd android/app
+          echo ${{ toJson(steps.parse_json.outputs.androidConfig) }} > google-services.json
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Fetch Data and Write to File
+        run: |
+          node -e "
+            const fs = require('fs');
+            const https = require('https');
+
+            const fetchAndWrite = async () => {
+              const url = 'https://figma-flow.vercel.app/api/v1/app/get-page-json?id=${{steps.parse_json.outputs.project}}&version=${{steps.parse_json.outputs.version}}'; 
+              const response = await fetch(url)
+              const responseJson = await response.json()
+              fs.writeFileSync('app-pages.json', JSON.stringify(responseJson?.data));
+              console.log('Data written to output.json', JSON.stringify(responseJson?.data));
+            }
+
+            fetchAndWrite()
+          "
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Clean Android project
+        run: |
+          cd android && ./gradlew clean
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Generate App APK
+        run: |
+          cd android && ./gradlew app:assembleRelease --no-daemon
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Upload S3    
+        uses: shallwefootball/s3-upload-action@master
+        id: S3
+        with:
+            aws_key_id: ${{ secrets.AWS_KEY_ID }}
+            aws_secret_access_key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+            aws_bucket: figmaflow
+            source_dir: android/app/build/outputs/apk
+            destination_dir: app/${{steps.parse_json.outputs.project }}/${{ steps.parse_json.outputs.app_version }}
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Make API POST Call
+        run: |
+          node -e "
+            async function postData() {
+              try {
+                const response = await fetch('https://figma-flow.vercel.app/api/v1/project/bundles/update-bundle', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        status: 'ANDROID COMPLETED',
+                        bundleId: '${{ steps.parse_json.outputs.bundleId }}',
+                        android_url: 'https://figmaflow.s3.ap-south-1.amazonaws.com/app/${{steps.parse_json.outputs.project}}/${{steps.parse_json.outputs.app_version}}/release/app-release.apk'
+                    })
+                })
+                const responseJson = await response.json()
+                console.log(responseJson);
+              } catch (error) {
+                console.error(error);
+                process.exit(1);
+              }
+            }
+
+            postData();
+          "
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
