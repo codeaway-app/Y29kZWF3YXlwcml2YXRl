@@ -25,6 +25,10 @@ jobs:
         with:
             repository: iambavith-dev/figmaflow-app
             token: ${{ secrets.GH_TOKEN }}
+            path: figmaflow-app
+
+      - name: Echo all folders in the current directory
+        run: ls -d */
 
       - name: Change directory to the cloned repository
         run: cd figmaflow-app
