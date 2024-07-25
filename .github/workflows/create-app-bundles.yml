@@ -23,7 +23,7 @@ jobs:
       - name: Checkout private repository
         uses: actions/checkout@v2
         with:
-            repository: iambavith-dev/figmaflow-app
+            repository: codeaway-app/codeaway-app
             token: ${{ secrets.GH_TOKEN }}
             path: figmaflow-app
 
