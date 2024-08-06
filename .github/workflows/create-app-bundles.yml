@@ -258,12 +258,29 @@ jobs:
 
       - name: Upload S3    
         uses: shallwefootball/s3-upload-action@master
-        id: S3
+        id: S3_APK
         with:
             aws_key_id: ${{ secrets.AWS_KEY_ID }}
             aws_secret_access_key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
             aws_bucket: figmaflow
             source_dir: figmaflow-app/android/app/build/outputs/apk
+            destination_dir: app/${{steps.parse_json.outputs.project }}/${{ steps.parse_json.outputs.app_version }}
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Generate App APK
+        run: |
+          cd figmaflow-app
+          cd android && ./gradlew app:bundleRelease --no-daemon
+        if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
+
+      - name: Upload S3    
+        uses: shallwefootball/s3-upload-action@master
+        id: S3_AAB
+        with:
+            aws_key_id: ${{ secrets.AWS_KEY_ID }}
+            aws_secret_access_key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+            aws_bucket: figmaflow
+            source_dir: figmaflow-app/android/app/build/outputs/bundle
             destination_dir: app/${{steps.parse_json.outputs.project }}/${{ steps.parse_json.outputs.app_version }}
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
 
@@ -277,7 +294,8 @@ jobs:
                     body: JSON.stringify({
                         status: 'ANDROID COMPLETED',
                         bundleId: '${{ steps.parse_json.outputs.bundleId }}',
-                        android_url: 'https://figmaflow.s3.ap-south-1.amazonaws.com/app/${{steps.parse_json.outputs.project}}/${{steps.parse_json.outputs.app_version}}/release/app-release.apk'
+                        android_apk_url: 'https://figmaflow.s3.ap-south-1.amazonaws.com/app/${{steps.parse_json.outputs.project}}/${{steps.parse_json.outputs.app_version}}/release/app-release.apk',
+                        android_aab_url: 'https://figmaflow.s3.ap-south-1.amazonaws.com/app/${{steps.parse_json.outputs.project}}/${{steps.parse_json.outputs.app_version}}/release/app-release.aab'
                     })
                 })
                 const responseJson = await response.json()
