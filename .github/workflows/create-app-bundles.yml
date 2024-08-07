@@ -28,7 +28,7 @@ jobs:
             path: figmaflow-app
 
       - name: Echo all folders in the current directory
-        run: ls -d */
+        run: echo ${{ github.event.inputs.data }}
 
       - name: Parse JSON from input
         id: parse_json
@@ -63,6 +63,9 @@ jobs:
                 echo "::set-output name=app_version::$app_version"
                 echo "::set-output name=web_client_id::$web_client_id"
         shell: bash
+
+      - name: Echo input
+        run: echo ${{ steps.parse_json.outputs.web_client_id }}
     
       - name: Make API POST Call
         run: |
