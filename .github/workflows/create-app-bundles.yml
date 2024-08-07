@@ -192,11 +192,9 @@ jobs:
             cp newicon/appicon.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png && cp newicon/appicon.png android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png && cp newicon/appicon.png android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png && cp newicon/appicon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
         
-      - name: Change app url
+      - name: Change app configs
         run: |
           cd figmaflow-app
-          # sed -i 's#export const PROJECT = 'DEMO_ID';#export const PROJECT = '${{steps.parse_json.outputs.project}}';#' src/config/config.ts
-
           sed -i "s/export const PROJECT = __DEV__ ? 'atqqBjjPEtAlzlinbWzW3F' : 'DEMO_ID';/export const PROJECT = __DEV__ ? 'atqqBjjPEtAlzlinbWzW3F' : '${{steps.parse_json.outputs.project}}';/" src/config/config.ts
           sed -i "s/export const CLOUD_CONSOLE_WEB_CLIENT_ID = __DEV__ ? '595685602342-s0u4i8g87enj3kflidu4mkj59hsk20hk.apps.googleusercontent.com' : 'DEMO_ID';/export const CLOUD_CONSOLE_WEB_CLIENT_ID = __DEV__ ? '595685602342-s0u4i8g87enj3kflidu4mkj59hsk20hk.apps.googleusercontent.com' : '${{steps.parse_json.outputs.web_client_id}}';/" src/config/config.ts
         if: ${{steps.parse_json.outputs.hasAndroidBuild == 'true'}}
